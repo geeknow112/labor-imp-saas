@@ -36,6 +36,13 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
+            ->navigationItems([
+                \Filament\Navigation\NavigationItem::make('ブログ管理')
+                    ->url('/admin/blog')
+                    ->icon('heroicon-o-document-text')
+                    ->group('コンテンツ管理')
+                    ->sort(2),
+            ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
