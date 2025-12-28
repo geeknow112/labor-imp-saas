@@ -10,7 +10,7 @@ services:
         extra_hosts:
             - 'host.docker.internal:host-gateway'
         ports:
-            - '8081:80'
+            - '8082:80'
             - '5173:5173'
         environment:
             WWWUSER: 1000
@@ -41,6 +41,7 @@ services:
             - './docker/mysql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
         networks:
             - sail
+        command: --default-authentication-plugin=mysql_native_password
         healthcheck:
             test:
                 - CMD

@@ -2,53 +2,79 @@
 
 namespace Database\Seeders;
 
-use App\Models\Permission;
-use App\Models\Role;
 use Illuminate\Database\Seeder;
+use App\Models\Role;
+use App\Models\Permission;
+use App\Models\User;
 
 class RolePermissionSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        // Create permissions
+        // 権限を作成
         $permissions = [
-            ['name' => 'manage_users', 'description' => 'Manage users'],
-            ['name' => 'manage_roles', 'description' => 'Manage roles and permissions'],
-            ['name' => 'manage_tenants', 'description' => 'Manage tenants'],
-            ['name' => 'view_dashboard', 'description' => 'View admin dashboard'],
-            ['name' => 'manage_settings', 'description' => 'Manage system settings'],
+            ['name' => 'manage_users', 'description' => 'ユーザーの作成、編集、削除'],
+            ['name' => 'manage_roles', 'description' => 'ロールの作成、編集、削除'],
+            ['name' => 'manage_permissions', 'description' => '権限の作成、編集、削除'],
+            ['name' => 'manage_blog', 'description' => 'ブログ記事の作成、編集、削除'],
+            ['name' => 'view_dashboard', 'description' => '管理画面ダッシュボードの閲覧'],
         ];
 
         foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission['name']], $permission);
+            Permission::firstOrCreate(
+                ['name' => $permission['name']],
+                $permission
+            );
         }
 
-        // Create roles
+        // ロールを作成
         $adminRole = Role::firstOrCreate(
             ['name' => 'admin'],
-            ['description' => 'System Administrator']
+            [
+                'description' => 'システム全体の管理権限'
+            ]
         );
 
         $managerRole = Role::firstOrCreate(
             ['name' => 'manager'],
-            ['description' => 'Manager']
+            [
+                'description' => '限定的な管理権限'
+            ]
         );
 
         $userRole = Role::firstOrCreate(
             ['name' => 'user'],
-            ['description' => 'Regular User']
+            [
+                'description' => '基本的な閲覧権限'
+            ]
         );
 
-        // Assign permissions to roles
+        // 管理者に全権限を付与
         $adminRole->permissions()->sync(Permission::all());
-        $managerRole->permissions()->sync(
-            Permission::whereIn('name', ['manage_users', 'view_dashboard'])->get()
+
+        // マネージャーに限定権限を付与
+        $managerPermissions = Permission::whereIn('name', [
+            'manage_blog',
+            'view_dashboard'
+        ])->get();
+        $managerRole->permissions()->sync($managerPermissions);
+
+        // 一般ユーザーに基本権限を付与
+        $userPermissions = Permission::whereIn('name', [
+            'view_dashboard'
+        ])->get();
+        $userRole->permissions()->sync($userPermissions);
+
+        // デフォルトユーザーを作成
+        $adminUser = User::firstOrCreate(
+            ['email' => 'admin@test.com'],
+            [
+                'name' => 'Admin',
+                'password' => bcrypt('password')
+            ]
         );
-        $userRole->permissions()->sync(
-            Permission::where('name', 'view_dashboard')->get()
-        );
+
+        // 管理者ロールを付与
+        $adminUser->roles()->sync([$adminRole->id]);
     }
 }
