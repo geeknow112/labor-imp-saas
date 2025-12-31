@@ -8,50 +8,74 @@ use Spatie\YamlFrontMatter\YamlFrontMatter;
 
 class BlogPost extends Model
 {
-    // データベースを使用しない設定
     public $timestamps = false;
     public $incrementing = false;
     protected $keyType = 'string';
     protected $primaryKey = 'filename';
     
     protected $fillable = [
-        'filename',
-        'title',
-        'slug',
-        'date',
-        'author',
-        'content'
+        'filename', 'title', 'slug', 'date', 'author', 'content'
     ];
 
-    protected $guarded = [];
-
-    public function __construct(array $attributes = [])
+    public function getConnection()
     {
-        parent::__construct($attributes);
-        $this->exists = true; // ファイルベースなので常に存在する
+        // ダミーの接続オブジェクトを返す
+        return app('db')->connection('mysql');
     }
 
-    public function getKey()
+    // クエリメソッドをオーバーライド
+    public function newQuery()
     {
-        return $this->getAttribute('filename');
+        // 実際のEloquent Builderを返すが、データベースクエリは実行しない
+        $query = parent::newQuery();
+        
+        // クエリの実行をオーバーライドするためのカスタムビルダーを作成
+        return new class($query->getQuery(), $this) extends \Illuminate\Database\Eloquent\Builder {
+            public function __construct($query, $model) {
+                parent::__construct($query);
+                $this->setModel($model);
+            }
+            
+            public function get($columns = ['*']) {
+                return BlogPost::getAllPosts();
+            }
+            
+            public function paginate($perPage = null, $columns = ['*'], $pageName = 'page', $page = null, $total = null) {
+                $posts = BlogPost::getAllPosts();
+                $perPage = $perPage ?: 15;
+                $page = $page ?: request()->get($pageName, 1);
+                return new \Illuminate\Pagination\LengthAwarePaginator(
+                    $posts->forPage($page, $perPage),
+                    $posts->count(),
+                    $perPage,
+                    $page,
+                    ['path' => request()->url(), 'pageName' => $pageName]
+                );
+            }
+            
+            public function first($columns = ['*']) {
+                return BlogPost::getAllPosts()->first();
+            }
+            
+            public function count() {
+                return BlogPost::getAllPosts()->count();
+            }
+        };
     }
 
-    public function getKeyName()
+    public static function query()
     {
-        return 'filename';
+        return (new static)->newQuery();
     }
 
-    // データベース操作を無効化
-    public function save(array $options = [])
+    public function resolveRouteBinding($value, $field = null)
     {
-        $this->saveToFile();
-        return true;
-    }
-
-    public function delete()
-    {
-        $this->deleteFile();
-        return true;
+        $posts = static::getAllPosts();
+        $post = $posts->firstWhere('filename', $value . '.md');
+        if (!$post) {
+            $post = $posts->firstWhere('slug', $value);
+        }
+        return $post;
     }
 
     public static function getAllPosts()
@@ -59,16 +83,10 @@ class BlogPost extends Model
         $posts = [];
         $files = Storage::disk('blog')->files('blog/posts');
         
-        \Log::info('BlogPost getAllPosts - found files:', $files);
-        
         foreach ($files as $file) {
-            \Log::info('Processing file:', ['file' => $file]);
             if (pathinfo($file, PATHINFO_EXTENSION) === 'md') {
                 $content = Storage::disk('blog')->get($file);
-                \Log::info('File content length:', ['file' => $file, 'length' => strlen($content)]);
-                
                 $document = YamlFrontMatter::parse($content);
-                
                 $filename = pathinfo($file, PATHINFO_BASENAME);
                 
                 $post = new self();
@@ -78,20 +96,11 @@ class BlogPost extends Model
                 $post->date = $document->matter('date', '');
                 $post->author = $document->matter('author', '');
                 $post->content = $document->body();
+                $post->exists = true;
                 
-                \Log::info('Created post in getAllPosts:', [
-                    'filename' => $post->filename,
-                    'title' => $post->title,
-                    'original_file' => $file,
-                    'extracted_filename' => $filename
-                ]);
-                
-                \Log::info('Created post:', ['title' => $post->title, 'filename' => $post->filename]);
                 $posts[] = $post;
             }
         }
-        
-        \Log::info('Total posts found:', ['count' => count($posts)]);
         
         return collect($posts)->sortByDesc('date');
     }
@@ -105,9 +114,6 @@ class BlogPost extends Model
             'author' => $this->author,
         ];
         
-        \Log::info('BlogPost saveToFile - attributes:', $this->attributes);
-        \Log::info('BlogPost saveToFile - content:', ['content' => $this->content]);
-        
         $yamlContent = "---\n";
         foreach ($frontMatter as $key => $value) {
             $yamlContent .= "{$key}: {$value}\n";
@@ -115,13 +121,18 @@ class BlogPost extends Model
         $yamlContent .= "---\n\n";
         $yamlContent .= $this->content;
         
-        \Log::info('BlogPost saveToFile - final content:', ['yamlContent' => $yamlContent]);
-        
         Storage::disk('blog')->put('blog/posts/' . $this->filename, $yamlContent);
     }
 
-    public function deleteFile()
+    public function save(array $options = [])
+    {
+        $this->saveToFile();
+        return true;
+    }
+
+    public function delete()
     {
         Storage::disk('blog')->delete('blog/posts/' . $this->filename);
+        return true;
     }
 }

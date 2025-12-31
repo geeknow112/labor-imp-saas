@@ -11,10 +11,11 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Textarea;
+use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
 
 class BlogPostsResource extends Resource
 {
@@ -76,6 +77,15 @@ class BlogPostsResource extends Resource
             ->filters([
                 //
             ])
+            ->recordActions([
+                EditAction::make()
+                    ->url(fn (BlogPost $record): string => static::getUrl('edit', ['record' => pathinfo($record->filename, PATHINFO_FILENAME)])),
+                DeleteAction::make()
+                    ->action(function (BlogPost $record) {
+                        $record->deleteFile();
+                        redirect()->to(static::getUrl('index'));
+                    }),
+            ])
             ->bulkActions([
                 //
             ]);
@@ -93,6 +103,7 @@ class BlogPostsResource extends Resource
         return [
             'index' => ListBlogPosts::route('/'),
             'create' => CreateBlogPost::route('/create'),
+            'edit' => EditBlogPost::route('/{record}/edit'),
         ];
     }
 }
