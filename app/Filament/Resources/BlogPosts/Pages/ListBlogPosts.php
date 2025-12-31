@@ -14,7 +14,7 @@ class ListBlogPosts extends ListRecords
 
     public function getTableRecords(): \Illuminate\Support\Collection
     {
-        $posts = BlogPost::getAllPosts();
+        $posts = BlogPost::all();
         
         // デバッグ用ログ
         \Log::info('getTableRecords - posts count:', ['count' => $posts->count()]);

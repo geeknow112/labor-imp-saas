@@ -8,109 +8,21 @@ use Spatie\YamlFrontMatter\YamlFrontMatter;
 
 class BlogPost extends Model
 {
-    public $timestamps = false;
-    public $incrementing = false;
-    protected $keyType = 'string';
-    protected $primaryKey = 'filename';
-    
     protected $fillable = [
         'filename', 'title', 'slug', 'date', 'author', 'content'
     ];
 
-    public function getConnection()
-    {
-        // ダミーの接続オブジェクトを返す
-        return app('db')->connection('mysql');
-    }
+    protected $casts = [
+        'date' => 'date',
+    ];
 
-    // クエリメソッドをオーバーライド
-    public function newQuery()
-    {
-        // 実際のEloquent Builderを返すが、データベースクエリは実行しない
-        $query = parent::newQuery();
-        
-        // クエリの実行をオーバーライドするためのカスタムビルダーを作成
-        return new class($query->getQuery(), $this) extends \Illuminate\Database\Eloquent\Builder {
-            public function __construct($query, $model) {
-                parent::__construct($query);
-                $this->setModel($model);
-            }
-            
-            public function get($columns = ['*']) {
-                return BlogPost::getAllPosts();
-            }
-            
-            public function paginate($perPage = null, $columns = ['*'], $pageName = 'page', $page = null, $total = null) {
-                $posts = BlogPost::getAllPosts();
-                $perPage = $perPage ?: 15;
-                $page = $page ?: request()->get($pageName, 1);
-                return new \Illuminate\Pagination\LengthAwarePaginator(
-                    $posts->forPage($page, $perPage),
-                    $posts->count(),
-                    $perPage,
-                    $page,
-                    ['path' => request()->url(), 'pageName' => $pageName]
-                );
-            }
-            
-            public function first($columns = ['*']) {
-                return BlogPost::getAllPosts()->first();
-            }
-            
-            public function count() {
-                return BlogPost::getAllPosts()->count();
-            }
-        };
-    }
-
-    public static function query()
-    {
-        return (new static)->newQuery();
-    }
-
-    public function resolveRouteBinding($value, $field = null)
-    {
-        $posts = static::getAllPosts();
-        $post = $posts->firstWhere('filename', $value . '.md');
-        if (!$post) {
-            $post = $posts->firstWhere('slug', $value);
-        }
-        return $post;
-    }
-
-    public static function getAllPosts()
-    {
-        $posts = [];
-        $files = Storage::disk('blog')->files('blog/posts');
-        
-        foreach ($files as $file) {
-            if (pathinfo($file, PATHINFO_EXTENSION) === 'md') {
-                $content = Storage::disk('blog')->get($file);
-                $document = YamlFrontMatter::parse($content);
-                $filename = pathinfo($file, PATHINFO_BASENAME);
-                
-                $post = new self();
-                $post->filename = $filename;
-                $post->title = $document->matter('title', 'Untitled');
-                $post->slug = $document->matter('slug', '');
-                $post->date = $document->matter('date', '');
-                $post->author = $document->matter('author', '');
-                $post->content = $document->body();
-                $post->exists = true;
-                
-                $posts[] = $post;
-            }
-        }
-        
-        return collect($posts)->sortByDesc('date');
-    }
-
+    // ファイルに保存
     public function saveToFile()
     {
         $frontMatter = [
             'title' => $this->title,
             'slug' => $this->slug,
-            'date' => $this->date,
+            'date' => $this->date->format('Y-m-d'),
             'author' => $this->author,
         ];
         
@@ -124,15 +36,60 @@ class BlogPost extends Model
         Storage::disk('blog')->put('blog/posts/' . $this->filename, $yamlContent);
     }
 
-    public function save(array $options = [])
+    // ファイルから読み込み
+    public function loadFromFile()
     {
-        $this->saveToFile();
-        return true;
+        if (Storage::disk('blog')->exists('blog/posts/' . $this->filename)) {
+            $content = Storage::disk('blog')->get('blog/posts/' . $this->filename);
+            $document = YamlFrontMatter::parse($content);
+            
+            $this->title = $document->matter('title', 'Untitled');
+            $this->slug = $document->matter('slug', '');
+            $this->date = $document->matter('date', '');
+            $this->author = $document->matter('author', '');
+            $this->content = $document->body();
+        }
     }
 
-    public function delete()
+    // 保存時にファイルも更新
+    protected static function booted()
     {
-        Storage::disk('blog')->delete('blog/posts/' . $this->filename);
-        return true;
+        static::saved(function ($blogPost) {
+            $blogPost->saveToFile();
+        });
+
+        static::deleted(function ($blogPost) {
+            Storage::disk('blog')->delete('blog/posts/' . $blogPost->filename);
+        });
+    }
+
+    // 既存ファイルをDBに同期
+    public static function syncFromFiles()
+    {
+        $files = Storage::disk('blog')->files('blog/posts');
+        
+        foreach ($files as $file) {
+            if (pathinfo($file, PATHINFO_EXTENSION) === 'md') {
+                $filename = pathinfo($file, PATHINFO_BASENAME);
+                $content = Storage::disk('blog')->get($file);
+                $document = YamlFrontMatter::parse($content);
+                
+                $date = $document->matter('date', '');
+                if (empty($date)) {
+                    $date = now()->format('Y-m-d');
+                }
+                
+                static::updateOrCreate(
+                    ['filename' => $filename],
+                    [
+                        'title' => $document->matter('title', 'Untitled'),
+                        'slug' => $document->matter('slug', str_replace('.md', '', $filename)),
+                        'date' => $date,
+                        'author' => $document->matter('author', 'Unknown'),
+                        'content' => $document->body(),
+                    ]
+                );
+            }
+        }
     }
 }

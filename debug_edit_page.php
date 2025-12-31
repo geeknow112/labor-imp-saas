@@ -3,7 +3,7 @@
 // EditBlogPostページの動作をテストするスクリプト
 
 $baseUrl = 'http://localhost:8000';
-$editUrl = $baseUrl . '/admin/blog-posts/aaa/edit';
+$editUrl = $baseUrl . '/admin/blog-posts/1/edit';
 
 // セッションを維持するためのCookieJar
 $cookieFile = tempnam(sys_get_temp_dir(), 'cookies');

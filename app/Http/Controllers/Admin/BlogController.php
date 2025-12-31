@@ -11,7 +11,7 @@ class BlogController extends Controller
 {
     public function index()
     {
-        $posts = BlogPost::getAllPosts();
+        $posts = BlogPost::all();
         return view('admin.blog.index', compact('posts'));
     }
 
@@ -47,7 +47,7 @@ class BlogController extends Controller
 
     public function edit($filename)
     {
-        $posts = BlogPost::getAllPosts();
+        $posts = BlogPost::all();
         $post = $posts->firstWhere('filename', $filename);
         
         if (!$post) {

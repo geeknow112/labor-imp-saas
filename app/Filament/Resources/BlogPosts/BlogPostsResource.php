@@ -79,10 +79,10 @@ class BlogPostsResource extends Resource
             ])
             ->recordActions([
                 EditAction::make()
-                    ->url(fn (BlogPost $record): string => static::getUrl('edit', ['record' => pathinfo($record->filename, PATHINFO_FILENAME)])),
+                    ->url(fn (BlogPost $record): string => static::getUrl('edit', ['record' => $record->id])),
                 DeleteAction::make()
                     ->action(function (BlogPost $record) {
-                        $record->deleteFile();
+                        $record->delete();
                         redirect()->to(static::getUrl('index'));
                     }),
             ])
