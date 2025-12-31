@@ -12,6 +12,10 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Textarea;
+
 class BlogPostsResource extends Resource
 {
     protected static ?string $model = BlogPost::class;
@@ -23,24 +27,24 @@ class BlogPostsResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
-                \Filament\Schemas\Components\TextInput::make('title')
+            ->components([
+                TextInput::make('title')
                     ->label('タイトル')
                     ->required(),
                     
-                \Filament\Schemas\Components\TextInput::make('slug')
+                TextInput::make('slug')
                     ->label('スラッグ')
                     ->required(),
                     
-                \Filament\Schemas\Components\DatePicker::make('date')
+                DateTimePicker::make('date')
                     ->label('日付')
                     ->required(),
                     
-                \Filament\Schemas\Components\TextInput::make('author')
+                TextInput::make('author')
                     ->label('著者')
                     ->required(),
                     
-                \Filament\Schemas\Components\Textarea::make('content')
+                Textarea::make('content')
                     ->label('内容')
                     ->required()
                     ->rows(10),
@@ -50,7 +54,6 @@ class BlogPostsResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->records(fn (): \Illuminate\Support\Collection => BlogPost::getAllPosts())
             ->columns([
                 \Filament\Tables\Columns\TextColumn::make('title')
                     ->label('タイトル')

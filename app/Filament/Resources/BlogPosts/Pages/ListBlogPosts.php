@@ -12,6 +12,27 @@ class ListBlogPosts extends ListRecords
 {
     protected static string $resource = BlogPostsResource::class;
 
+    public function getTableRecords(): \Illuminate\Support\Collection
+    {
+        $posts = BlogPost::getAllPosts();
+        
+        // デバッグ用ログ
+        \Log::info('getTableRecords - posts count:', ['count' => $posts->count()]);
+        
+        // 各投稿にIDを設定
+        $posts->each(function ($post, $index) {
+            $post->id = $index + 1;
+            \Log::info('Post details:', [
+                'id' => $post->id,
+                'title' => $post->title,
+                'filename' => $post->filename,
+                'date' => $post->date
+            ]);
+        });
+        
+        return $posts;
+    }
+
     protected function getHeaderActions(): array
     {
         return [
