@@ -29,7 +29,8 @@ class CreateBlogPost extends CreateRecord
         \Log::info('Processed date: ' . $date);
         \Log::info('Filename: ' . $filename);
         
-        $post = new BlogPost([
+        // DBに保存（ファイル保存は自動的に実行される）
+        $post = BlogPost::create([
             'filename' => $filename,
             'title' => $data['title'],
             'slug' => $data['slug'],
@@ -38,9 +39,7 @@ class CreateBlogPost extends CreateRecord
             'content' => $data['content'],
         ]);
 
-        \Log::info('About to save file');
-        $post->saveToFile();
-        \Log::info('File saved successfully');
+        \Log::info('Post created with ID: ' . $post->id);
         
         return $post;
     }
