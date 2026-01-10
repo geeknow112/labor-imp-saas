@@ -31,9 +31,13 @@ class BlogPostController extends Controller
             'content' => 'required|string',
         ]);
 
-        // Generate filename from slug
-        $validated['filename'] = $validated['slug'] . '.md';
+        // Generate filename and check uniqueness
+        $filename = $validated['slug'] . '.md';
+        if (BlogPost::where('filename', $filename)->exists()) {
+            return response()->json(['error' => 'Filename already exists'], 422);
+        }
 
+        $validated['filename'] = $filename;
         $post = BlogPost::create($validated);
 
         return response()->json($post, 201);
@@ -59,6 +63,15 @@ class BlogPostController extends Controller
             'author' => 'sometimes|required|string|max:255',
             'content' => 'sometimes|required|string',
         ]);
+
+        // Check filename uniqueness if slug is being updated
+        if (isset($validated['slug'])) {
+            $filename = $validated['slug'] . '.md';
+            if (BlogPost::where('filename', $filename)->where('id', '!=', $blogPost->id)->exists()) {
+                return response()->json(['error' => 'Filename already exists'], 422);
+            }
+            $validated['filename'] = $filename;
+        }
 
         // Update filename if slug changed
         if (isset($validated['slug'])) {
